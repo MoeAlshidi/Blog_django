@@ -1,3 +1,4 @@
+from django.db.models import Count
 from django.views.generic import ListView
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_POST
@@ -37,7 +38,7 @@ def post_list(request, tag_slug=None):
   return render(request,'blog/post/list.html',{'posts':posts, 'tag':tag})
 
 
-def post_details(request, post, year, month, day, ):
+def post_details(request, post, year, month, day):
     post = get_object_or_404(Post,
                              status=Post.Status.PUBLISHED,
                              slug=post,
@@ -48,8 +49,13 @@ def post_details(request, post, year, month, day, ):
     
     comments=post.comments.filter(active=True)
     form=CommentForm
+    #List of similar posts
+    post_tags_id=post.tags.values_list('id',flat=True)
+    similar_posts= Post.published.filter(tags__in=post_tags_id).exclude(id=post.id)
+    similar_posts=similar_posts.annotate(same_tags=Count('tags')).order_by('-same_tags','-publish')[:4]
+    
 
-    return render(request, 'blog/post/detail.html', {'post': post,'comments':comments,'form':form})
+    return render(request, 'blog/post/detail.html', {'post': post,'comments':comments,'form':form,'similar_posts':similar_posts})
 
 @require_POST
 def post_comment(request,post_id):
